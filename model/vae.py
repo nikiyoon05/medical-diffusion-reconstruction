@@ -49,8 +49,8 @@ class MedVAEWrapper(nn.Module):
  
     # Expected latent shapes for each model (given 512x512 input)
     MODEL_INFO = {
-        "medvae_4_1_2d": {"downsample": 4, "latent_channels": 1},  # shape of(B, 1, 128, 128)
-        "medvae_4_3_2d": {"downsample": 4, "latent_channels": 3},  #shape(B, 3, 128, 128)
+        "medvae_4_1_2d": {"downsample": 4, "latent_channels": 1}, # shape of(B, 1, 128, 128)
+        "medvae_4_3_2d": {"downsample": 4, "latent_channels": 3}, #shape(B, 3, 128, 128)
         "medvae_8_1_2d": {"downsample": 8, "latent_channels": 1},  # shape(B, 1, 64, 64)
         "medvae_8_4_2d": {"downsample": 8, "latent_channels": 4},  # shape(B, 4, 64, 64)
     }
@@ -76,7 +76,7 @@ class MedVAEWrapper(nn.Module):
         self.model.requires_grad_(False)
         self.model.eval()
  
-        print(f" Spatial downsampling: {self.info['downsample']}x")
+        print(f"Spatial downsampling: {self.info['downsample']}x")
         print(f"Latent channels: {self.info['latent_channels']}")
         print(f"512x512 input → {512 // self.info['downsample']}x"
               f"{512 // self.info['downsample']}x{self.info['latent_channels']} latent")
@@ -93,6 +93,8 @@ class MedVAEWrapper(nn.Module):
             latent: (B, C, H/d, W/d) float32 tensor
                     where C = latent_channels, d = downsample factor
         """
+        if x.shape[1] == 1:
+            x = x.repeat(1, 3, 1, 1)  # (B, 1, H, W) --> (B, 3, H, W)
         return self.model.encode(x)
  
     @torch.no_grad()
@@ -106,7 +108,10 @@ class MedVAEWrapper(nn.Module):
         Returns:
             recon: (B, 1, H, W) float32 tensor
         """
-        return self.model.decode(z)
+        out = self.model.decode(z)
+        if out.shape[1] == 3:
+            out = out.mean(dim=1, keepdim=True)  # (B, 3, H, W) --> (B, 1, H, W)
+        return out
  
     @torch.no_grad()
     def reconstruct(self, x):
@@ -120,7 +125,10 @@ class MedVAEWrapper(nn.Module):
             recon: (B, 1, H, W) float32 tensor
             latent: (B, C, H_lat, W_lat) float32 tensor
         """
-        decoded, latent = self.model(x, decode=True)
+        x_in = x.repeat(1, 3, 1, 1) if x.shape[1] == 1 else x
+        decoded, latent = self.model(x_in, decode=True)
+        if decoded.shape[1] == 3:
+            decoded = decoded.mean(dim=1, keepdim=True)
         return decoded, latent
  
     @property
