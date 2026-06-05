@@ -193,7 +193,7 @@ class RectifiedFlow(nn.Module):
             t = torch.full((z_condition.shape[0],), i * dt, device=device)
  
             # Predicted velocity (deterministic part)
-            v_pred = self.backbone(z_t, t, z_condition)
+            v_pred = self.model(z_t, t, z_condition)
  
             # Langevin noise (stochastic part)
             noise = torch.randn_like(z_t)

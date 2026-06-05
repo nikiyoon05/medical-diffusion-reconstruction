@@ -22,12 +22,12 @@ image = (
 vol = modal.Volume.from_name("ldct-data")
 
 
-@app.function(image=image, volumes={"/data": vol}, gpu="A100", timeout=14400)
+@app.function(image=image, volumes={"/data": vol}, gpu="H100", timeout=14400)
 def train():
     from model.train_core import run_training
     run_training(
         latent_dir="/data/latents",
-        results_dir="/data/results/diffusion_v2",
+        results_dir="/data/results/diffusion_v3",
         vol=vol,
         num_epochs=80,
     )

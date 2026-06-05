@@ -13,7 +13,7 @@ Output: 4-column images
     [Low-dose | Mean reconstruction | Uncertainty heatmap | Full-dose GT]
 
 Run: modal run uncertainty.py
-Get: modal volume get ldct-data /results/diffusion_v2/uncertainty ./uncertainty
+Get: modal volume get ldct-data /results/diffusion_v3/uncertainty ./uncertainty
 """
 
 import modal
@@ -30,11 +30,11 @@ image = (
 vol = modal.Volume.from_name("ldct-data")
 
 # Config
-CHECKPOINT = "/data/results/diffusion_v2/checkpoints/best.pt"
+CHECKPOINT = "/data/results/diffusion_v3/checkpoints/best.pt"
 N_RUNS = 10  # Number of stochastic samples
-SAMPLE_STEPS = 50   # Steps per SDE run
+SAMPLE_STEPS = 100   # Steps per SDE run
 SIGMA = 0.15   # Noise strength 
-N_SLICES = 8  # Number of slices to visualize
+N_SLICES = 10  # Number of slices to visualize
 
 
 @app.function(image=image, volumes={"/data": vol}, gpu="A100", timeout=3600)
@@ -55,7 +55,7 @@ def generate_uncertainty():
 
     device = torch.device("cuda")
 
-    RESULTS_DIR = "/data/results/diffusion_v2/uncertainty"
+    RESULTS_DIR = "/data/results/diffusion_v3/uncertainty"
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     # Load model
@@ -65,8 +65,9 @@ def generate_uncertainty():
 
     backbone = ConditionalUNet(
         in_channels=4, cond_channels=4, base_channels=128,
-        channel_mults=(1, 2, 4, 4), num_res_blocks=2,
-        dropout=0.0, attn_resolutions=(8,),
+        channel_mults=(1, 2, 4, 4), num_res_blocks=3,
+        dropout=0.0, attn_resolutions=(8, 16),
+        cross_attn_resolutions=(8, 16), n_heads=4,
     ).to(device)
     backbone.load_state_dict(ckpt["backbone_state"])
     backbone.eval()
@@ -194,7 +195,7 @@ def generate_uncertainty():
 
     vol.commit()
     print(f"\nSaved to {RESULTS_DIR}")
-    print("Download: modal volume get ldct-data /results/diffusion_v2/uncertainty ./uncertainty")
+    print("Download: modal volume get ldct-data /results/diffusion_v3/uncertainty ./uncertainty")
 
 
 @app.local_entrypoint()

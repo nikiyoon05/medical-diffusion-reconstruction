@@ -27,10 +27,10 @@ def run_training(
     latent_dir="/data/latents",
     results_dir="/data/results/diffusion_v2",
     vol=None,                  # Modal volume to commit (optional)
-    batch_size=32,
+    batch_size=16,
     num_epochs=80,
     lr=1e-4,
-    dropout=0.2,
+    dropout=0.15,
     ema_decay=0.999,
     patience=15,               # early stopping patience
     sample_steps=20,
@@ -60,8 +60,9 @@ def run_training(
     # --- Model ---
     backbone = ConditionalUNet(
         in_channels=4, cond_channels=4, base_channels=128,
-        channel_mults=(1, 2, 4, 4), num_res_blocks=2,
-        dropout=dropout, attn_resolutions=(8,),
+        channel_mults=(1, 2, 4, 4), num_res_blocks=3,
+        dropout=dropout, attn_resolutions=(8, 16),
+        cross_attn_resolutions=(8, 16), n_heads=4,
     ).to(device)
 
     flow = RectifiedFlow(backbone).to(device)
