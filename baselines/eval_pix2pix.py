@@ -250,7 +250,7 @@ def evaluate():
 
     # Config
     DATA_DIR = "/data/processed"
-    RESULTS_DIR = "/data/results/pix2pix"
+    RESULTS_DIR = "/data/results/pix2pix_v2"
     EVAL_DIR = f"{RESULTS_DIR}/eval"
     os.makedirs(EVAL_DIR, exist_ok=True)
     os.makedirs(f"{EVAL_DIR}/comparisons", exist_ok=True)

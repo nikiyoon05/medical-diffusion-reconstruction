@@ -36,7 +36,7 @@ vol = modal.Volume.from_name("ldct-data")
 @app.function(
     image=image,
     volumes={"/data": vol},
-    gpu="A10G",
+    gpu="H100",
     timeout=7200,  # 2 hours
 )
 def train():
@@ -226,13 +226,13 @@ def train():
 
     # Config
     DATA_DIR = "/data/processed"
-    RESULTS_DIR = "/data/results/pix2pix"
+    RESULTS_DIR = "/data/results/pix2pix_v2"
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(f"{RESULTS_DIR}/samples", exist_ok=True)
     os.makedirs(f"{RESULTS_DIR}/checkpoints", exist_ok=True)
 
-    BATCH_SIZE = 4
-    NUM_EPOCHS = 50
+    BATCH_SIZE = 8
+    NUM_EPOCHS = 40
     LR = 2e-4
     BETA1 = 0.5
     LAMBDA_L1 = 100.0

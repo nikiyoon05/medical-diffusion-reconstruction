@@ -155,13 +155,98 @@ class RectifiedFlow(nn.Module):
             z_mid = z_t + (dt/2) * v1
 
             # predict velcity at midpoint
-            v2 = self.backbone(z_mid, t_mid, z_condition)
+            v2 = self.model(z_mid, t_mid, z_condition)
 
             # full step using midpoint velocity
             z_t = z_t + dt * v2
         return z_t
     
-    # ----------- just a quick test ------------
+    #-------------------SDE SAMPLER FOR VARIANCE--------------------
+    @torch.no_grad()
+    def sample_sde(self, z_condition, num_steps=50, sigma=0.1, device="cuda"):
+        """
+        Stochastic sampling by converting the ODE to an SDE.
+ 
+        Instead of:  z_{t+dt} = z_t + dt * v                     (ODE, deterministic)
+        We do:       z_{t+dt} = z_t + dt * v + sigma*sqrt(dt)*ε   (SDE, stochastic)
+ 
+        The injected noise makes each run produce a slightly different output.
+        Areas where the model is confident will be stable across runs.
+        Areas where it's uncertain will vary — captured by pixel variance.
+ 
+        Args:
+            z_condition: (B, C, H, W) low-dose latent
+            num_steps:  number of steps (more = smoother)
+            sigma:  noise strength — controls randomness level
+                    0.0 = deterministic (same as ODE)
+                    0.05-0.2 = typical range for uncertainty estimation
+            device: torch device
+ 
+        Returns:
+            z_1: (B, C, H, W) predicted full-dose latent (stochastic)
+        """
+        z_t = torch.randn_like(z_condition)
+        dt = 1.0 / num_steps
+        sqrt_dt = dt ** 0.5
+ 
+        for i in range(num_steps):
+            t = torch.full((z_condition.shape[0],), i * dt, device=device)
+ 
+            # Predicted velocity (deterministic part)
+            v_pred = self.backbone(z_t, t, z_condition)
+ 
+            # Langevin noise (stochastic part)
+            noise = torch.randn_like(z_t)
+ 
+            # SDE step: drift + diffusion
+            z_t = z_t + dt * v_pred + sigma * sqrt_dt * noise
+ 
+        return z_t
+    
+    @torch.no_grad()
+    def compute_uncertainty(self, z_condition, n_runs=10, num_steps=50,
+                            sigma=0.1, device="cuda"):
+        """
+        Estimate per-pixel uncertainty via Monte Carlo SDE sampling.
+ 
+        Runs the SDE sampler n_runs times on the same input, then computes:
+            - mean prediction (best estimate of the full-dose image)
+            - variance map (per-pixel uncertainty)
+ 
+        High variance = the model needed the stochastic noise to "decide"
+        what to put there = low confidence = potential hallucination.
+ 
+        Args:
+            z_condition: (B, C, H, W) low-dose latent
+            n_runs: number of stochastic runs (10 is typical)
+            num_steps: ODE/SDE steps per run
+            sigma: noise strength for SDE
+            device:
+ 
+        Returns:
+            mean_latent:(B, C, H, W) averaged prediction across runs
+            variance_latent: (B, C, H, W) per-element variance across runs
+            all_samples: list of n_runs tensors, each (B, C, H, W)
+        """
+        all_samples = []
+ 
+        for run in range(n_runs):
+            z_pred = self.sample_sde(
+                z_condition, num_steps=num_steps, sigma=sigma, device=device
+            )
+            all_samples.append(z_pred)
+ 
+        # Stack: (n_runs, B, C, H, W)
+        stacked = torch.stack(all_samples, dim=0)
+ 
+        # Mean and variance across the n_runs dimension
+        mean_latent = stacked.mean(dim=0)       # (B, C, H, W)
+        variance_latent = stacked.var(dim=0)     # (B, C, H, W)
+ 
+        return mean_latent, variance_latent, all_samples
+
+    # -------------------------------------------------------------
+    # ----------- just a quick test --------------------
     if __name__ == "main":
         # Dummy backbone for testing
         class DummyBackbone(nn.Module):
