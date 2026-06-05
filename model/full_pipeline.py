@@ -1,6 +1,7 @@
 """
 full_pipeline.py
 
+**THIS RETRAINS THE MODEL AND DOES ALL PREPROCESSING**
 Runs all four steps in sequence inside a single Modal container so it
 survives logoff with --detach:
 
